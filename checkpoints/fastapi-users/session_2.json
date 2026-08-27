@@ -1,0 +1,14 @@
+{
+  "repo_name": "fastapi-users",
+  "task_id": "EMPIRICAL-FASTAPI-USERS-01",
+  "session_idx": 2,
+  "commit_sha": "71dc760fdca4aceca1d7021def053078bde42dcd",
+  "metrics": {
+    "dged": 0,
+    "lvc": 0,
+    "lvc_norm": 0.0,
+    "cnlv": 0.0,
+    "delta_cc": 1
+  },
+  "tests_passed": 0
+}

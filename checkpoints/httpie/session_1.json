@@ -1,0 +1,14 @@
+{
+  "repo_name": "httpie",
+  "task_id": "EMPIRICAL-HTTPIE-01",
+  "session_idx": 1,
+  "commit_sha": "8560d1196d78fa839a4d69503680d95bed4552d4",
+  "metrics": {
+    "dged": 0,
+    "lvc": 0,
+    "lvc_norm": 0.0,
+    "cnlv": 0.0,
+    "delta_cc": 1
+  },
+  "tests_passed": 0
+}

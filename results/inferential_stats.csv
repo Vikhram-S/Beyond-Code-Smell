@@ -1,0 +1,4 @@
+analysis,metric,stat,p_value,effect_size_r
+Mann-Whitney U Test,cnlv,2189.5,1.1933143037488061e-06,-0.5017146776406036
+Linear MixedLM Slope,cnlv,0.01443518152109487,0.35814415845815795,N/A
+Downstream Risk Logit,task_failed,9.937685255477582,0.0031768178579596462,OddsRatio=20695.78

@@ -1,0 +1,8 @@
+{
+  "cumulative_cost_usd": 0.0,
+  "total_input_tokens": 0,
+  "total_output_tokens": 0,
+  "max_cost_usd": 50.0,
+  "total_calls": 0,
+  "call_history": []
+}

@@ -1,0 +1,14 @@
+{
+  "repo_name": "litellm",
+  "task_id": "EMPIRICAL-LITELLM-01",
+  "session_idx": 1,
+  "commit_sha": "d2aea2d4e7eff9aaa720a6d6b5ec3884daf94052",
+  "metrics": {
+    "dged": 0,
+    "lvc": 0,
+    "lvc_norm": 0.0,
+    "cnlv": 0.0,
+    "delta_cc": 1
+  },
+  "tests_passed": 0
+}

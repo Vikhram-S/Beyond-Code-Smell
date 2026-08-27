@@ -1,0 +1,14 @@
+{
+  "repo_name": "diskcache",
+  "task_id": "EMPIRICAL-DISKCACHE-01",
+  "session_idx": 1,
+  "commit_sha": "cffbcec2b198e3a296ec294bd43da37fc559645b",
+  "metrics": {
+    "dged": 2,
+    "lvc": 0,
+    "lvc_norm": 0.0,
+    "cnlv": 0.0,
+    "delta_cc": 1
+  },
+  "tests_passed": 0
+}

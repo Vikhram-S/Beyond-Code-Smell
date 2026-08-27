@@ -1,0 +1,44 @@
+budget:
+  max_cost_usd: 50.0
+  hard_stop_on_overbudget: true
+  cache_dir: ".cache/api_calls"
+
+llm:
+  provider: "mock"  # Options: "claude", "openai", "mock"
+  model_name: "claude-3-5-sonnet-20241022"
+  temperature: 0.0
+  max_tokens: 4096
+
+orchestration:
+  default_sessions_per_task: 3
+  max_retries: 3
+  timeout_seconds: 120
+  checkpoint_dir: "checkpoints"
+  repo_work_dir: "work_repos"
+
+pricing_per_1m:
+  claude-3-5-sonnet-20241022:
+    input_usd: 3.00
+    output_usd: 15.00
+  gpt-4o:
+    input_usd: 2.50
+    output_usd: 10.00
+  mock-model:
+    input_usd: 0.00
+    output_usd: 0.00
+
+repos:
+  toy-python-app:
+    name: "toy-python-app"
+    language: "python"
+    test_cmd: "pytest"
+    layers:
+      L1_domain: ["domain"]
+      L2_service: ["service"]
+      L3_adapter: ["adapters"]
+      L4_entrypoint: ["api"]
+    forbidden_rules:
+      - source: "L1_domain"
+        target: ["L2_service", "L3_adapter", "L4_entrypoint"]
+      - source: "L2_service"
+        target: ["L3_adapter", "L4_entrypoint"]
