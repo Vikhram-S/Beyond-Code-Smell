@@ -131,28 +131,35 @@ class StatisticalAnalyzer:
         Random effect: Repository ID (accounts for repo-level variance)
         """
         agent_df = self.df[self.df["subject"] == "agent"].copy()
-        
-        # Fit MixedLM
-        model = smf.mixedlm(f"{metric} ~ step_idx", agent_df, groups=agent_df["repo_id"])
-        result = model.fit()
-
-        fixed_slope = float(result.params["step_idx"])
-        p_val = float(result.pvalues["step_idx"])
-        conf_int = result.conf_int().loc["step_idx"].tolist()
-        random_var = float(result.cov_re.iloc[0, 0])
-
-        return {
-            "formula": f"{metric} ~ step_idx + (1 | repo_id)",
-            "n_obs": int(result.nobs),
-            "fixed_effect_slope": fixed_slope,
-            "fixed_effect_pvalue": p_val,
-            "conf_int_95": conf_int,
-            "random_effect_var": random_var,
-            "interpretation": (
-                f"For each sequential agent session, {metric} increases by {fixed_slope:.4f} units "
-                f"(p = {p_val:.4e}, random repo variance = {random_var:.4f})."
-            )
-        }
+        try:
+            model = smf.mixedlm(f"{metric} ~ step_idx", agent_df, groups=agent_df["repo_id"])
+            result = model.fit()
+            fixed_slope = float(result.params["step_idx"])
+            p_val = float(result.pvalues["step_idx"])
+            conf_int = result.conf_int().loc["step_idx"].tolist()
+            random_var = float(result.cov_re.iloc[0, 0])
+            return {
+                "formula": f"{metric} ~ step_idx + (1 | repo_id)",
+                "n_obs": int(result.nobs),
+                "fixed_effect_slope": fixed_slope,
+                "fixed_effect_pvalue": p_val,
+                "conf_int_95": conf_int,
+                "random_effect_var": random_var,
+                "interpretation": (
+                    f"For each sequential agent session, {metric} increases by {fixed_slope:.4f} units "
+                    f"(p = {p_val:.4e}, random repo variance = {random_var:.4f})."
+                )
+            }
+        except Exception as e:
+            return {
+                "formula": f"{metric} ~ step_idx + (1 | repo_id)",
+                "n_obs": int(len(agent_df)),
+                "fixed_effect_slope": float("nan"),
+                "fixed_effect_pvalue": float("nan"),
+                "conf_int_95": [float("nan"), float("nan")],
+                "random_effect_var": float("nan"),
+                "interpretation": f"LMM did not converge on this sample ({e}); slope is not reported.",
+            }
 
     def compute_power_analysis(self, n1: int, n2: int, alpha: float = 0.05, power: float = 0.80) -> Dict[str, Any]:
         """

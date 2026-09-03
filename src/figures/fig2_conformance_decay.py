@@ -24,8 +24,9 @@ def render_fig2_conformance_decay(data_path: Path, output_dir: Path):
             pass
 
     if df.empty:
-        from src.analysis.synthetic_generator import SyntheticDataGenerator
-        df = SyntheticDataGenerator.generate_dataset()
+        raise FileNotFoundError(
+            f"No real session dataset at {data_path}. Refusing synthetic figures for the paper."
+        )
 
     fig, axes = plt.subplots(1, 3, figsize=(10.0, 3.8), sharey=True, dpi=600)
     sizes = ["small", "medium", "large"]

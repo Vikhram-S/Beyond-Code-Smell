@@ -1,4 +1,6 @@
 import json
+import shutil
+import stat
 from pathlib import Path
 from typing import Dict, Any
 from src.metrics.evaluator import MetricsEvaluator
@@ -101,6 +103,8 @@ class RepoMiner:
             "baseline_edge_count": len(edges),
             "baseline_cyclomatic_complexity": cc
         }
+        code, sha, _ = run_shell_command("git rev-parse HEAD", cwd=repo_path)
+        manifest["baseline_sha"] = sha.strip() if code == 0 else ""
 
         manifest_path = repo_path / "baseline_manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
@@ -110,3 +114,52 @@ class RepoMiner:
             f"{len(edges)} edges, CC={cc}"
         )
         return manifest
+
+    def clone_or_update(
+        self,
+        repo_name: str,
+        clone_url: str,
+        clone_depth: int = 1,
+        history_deepen: int = 200,
+    ) -> Path:
+        """Shallow clone, then deepen enough history for matched human commits."""
+        repo_path = self.work_dir / repo_name
+        if repo_path.exists():
+            logger.info(f"Reusing existing checkout {repo_path}")
+            return repo_path
+
+        logger.info(f"Shallow-cloning {clone_url} depth={clone_depth} -> {repo_path}")
+        code, out, err = run_shell_command(
+            f'git clone --depth {clone_depth} "{clone_url}" "{repo_name}"',
+            cwd=self.work_dir,
+            timeout=300,
+        )
+        if code != 0 or not repo_path.exists():
+            raise RuntimeError(f"git clone failed for {repo_name}: {err or out}")
+
+        if history_deepen and history_deepen > clone_depth:
+            logger.info(f"Deepening history to {history_deepen} commits for matching")
+            run_shell_command(
+                f"git fetch --deepen={history_deepen}",
+                cwd=repo_path,
+                timeout=300,
+            )
+        run_shell_command("git config user.name 'Harness Evaluator'", cwd=repo_path)
+        run_shell_command("git config user.email 'harness@evaluator.local'", cwd=repo_path)
+        return repo_path
+
+    @staticmethod
+    def delete_checkout(repo_path: Path) -> None:
+        """Delete a checkout so the laptop does not keep N repos at once."""
+        if not repo_path.exists():
+            return
+
+        def _onerror(func, path, _exc):
+            try:
+                Path(path).chmod(stat.S_IWRITE)
+                func(path)
+            except Exception as e:
+                logger.warning(f"Could not delete {path}: {e}")
+
+        logger.info(f"Deleting checkout {repo_path} after analysis")
+        shutil.rmtree(repo_path, onerror=_onerror)

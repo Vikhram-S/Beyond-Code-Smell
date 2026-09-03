@@ -83,19 +83,23 @@ class MetricsEvaluator:
         if not repo_path.exists():
             return nodes, edges
 
-        py_files = list(repo_path.rglob("*.py"))
-        
+        skip_dir_tokens = {".git", "venv", ".venv", "node_modules", "__pycache__", ".tox"}
+        py_files = [
+            p for p in repo_path.rglob("*.py")
+            if not any(tok in p.parts for tok in skip_dir_tokens)
+        ]
+
         for py_file in py_files:
-            # Determine module name relative to repo root
             rel_path = py_file.relative_to(repo_path)
             parts = list(rel_path.with_suffix("").parts)
             if parts[-1] == "__init__":
                 parts.pop()
             if not parts:
                 continue
-                
-            source_mod = parts[0]  # Top-level package/directory abstraction
+            # Dotted module path so layer prefixes like fastapi_users.models match.
+            source_mod = ".".join(parts)
             nodes.add(source_mod)
+            nodes.add(parts[0])
 
             try:
                 content = py_file.read_text(encoding="utf-8", errors="ignore")
@@ -107,18 +111,30 @@ class MetricsEvaluator:
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
                     for alias in node.names:
-                        target_mod = alias.name.split(".")[0]
+                        target_mod = alias.name
                         nodes.add(target_mod)
                         if source_mod != target_mod:
                             edges.add((source_mod, target_mod))
                 elif isinstance(node, ast.ImportFrom):
                     if node.module:
-                        target_mod = node.module.split(".")[0]
+                        target_mod = node.module
                         nodes.add(target_mod)
                         if source_mod != target_mod:
                             edges.add((source_mod, target_mod))
 
         return nodes, edges
+
+    @staticmethod
+    def layer_of_module(mod: str, layer_mapping: Dict[str, List[str]]) -> str | None:
+        """Map a dotted module name to a layer via exact or prefix match."""
+        best: tuple[int, str] | None = None
+        for layer_id, prefixes in layer_mapping.items():
+            for prefix in prefixes:
+                if mod == prefix or mod.startswith(prefix + "."):
+                    score = len(prefix)
+                    if best is None or score > best[0]:
+                        best = (score, layer_id)
+        return None if best is None else best[1]
 
     @staticmethod
     def compute_dged(
@@ -149,18 +165,12 @@ class MetricsEvaluator:
         Computes Layering Violation Count (LVC) for newly introduced edges (E_post \ E_pre).
         Returns (lvc_count, list_of_violations [(src, tgt, rule_desc)]).
         """
-        # Map modules to layer IDs
-        mod_to_layer: Dict[str, str] = {}
-        for layer_id, modules in layer_mapping.items():
-            for mod in modules:
-                mod_to_layer[mod] = layer_id
-
         new_edges = e_post - e_pre
         violations: List[Tuple[str, str, str]] = []
 
         for src, tgt in new_edges:
-            src_layer = mod_to_layer.get(src)
-            tgt_layer = mod_to_layer.get(tgt)
+            src_layer = MetricsEvaluator.layer_of_module(src, layer_mapping)
+            tgt_layer = MetricsEvaluator.layer_of_module(tgt, layer_mapping)
 
             if not src_layer or not tgt_layer:
                 continue
@@ -208,7 +218,10 @@ class MetricsEvaluator:
         total_cc = 0
         repo_path = Path(repo_path)
 
+        skip_dir_tokens = {".git", "venv", ".venv", "node_modules", "__pycache__", ".tox"}
         for py_file in repo_path.rglob("*.py"):
+            if any(tok in py_file.parts for tok in skip_dir_tokens):
+                continue
             try:
                 content = py_file.read_text(encoding="utf-8", errors="ignore")
                 tree = ast.parse(content)

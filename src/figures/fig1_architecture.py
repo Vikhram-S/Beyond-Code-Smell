@@ -101,7 +101,7 @@ def render_fig1_matplotlib(output_dir: Path):
                "Agent Orchestration",
                ["Multi-session execution",
                 "Forced context resets",
-                "Claude API / MockLLM"],
+                "Gemini API (free tier)"],
                palette["agent"], "#FFF5F0", palette)
 
     _draw_card(ax, 7.05, 3.2, "STAGE 3: checkpoint_store",
@@ -146,7 +146,7 @@ def render_fig1_matplotlib(output_dir: Path):
             ha="center", va="center",
             fontsize=8.5, fontweight="bold", color="#854D0E", zorder=3)
     ax.text(5.25, 2.58,
-            "SHA-256 prompt-cache  |  $50 budget ceiling",
+            "SHA-256 prompt-cache  |  free-tier RPM/RPD quota",
             ha="center", va="center",
             fontsize=7.5, color="#A16207", zorder=3)
 
@@ -220,8 +220,8 @@ graph TD
         CS --> AN
         AN --> FG["figures<br/>Publication plots"]
     end
-    CT["cost_tracker<br/>(Cross-cutting Observer)"]
+        CT["cost_tracker<br/>(Cross-cutting Observer)"]
     CT -. "token logs" .-> TR
-    CT -. "budget stop" .-> CS
+    CT -. "quota stop" .-> CS
 ```
 """

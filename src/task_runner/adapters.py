@@ -92,6 +92,7 @@ class ClaudeAPIAdapter(BaseLLMAdapter):
     def __init__(self, model_name: str, cost_tracker: CostTracker, api_key: str | None = None):
         super().__init__(model_name or "claude-3-5-sonnet-20241022", cost_tracker)
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+        # Claude is retained only so old unit tests import; live runs use GeminiAPIAdapter.
 
     def generate_response(self, system_prompt: str, user_prompt: str) -> str:
         # Check disk cache
@@ -134,3 +135,116 @@ class ClaudeAPIAdapter(BaseLLMAdapter):
         except Exception as e:
             logger.error(f"Claude API Call Error: {e}")
             raise e
+
+
+class QuotaExceededError(Exception):
+    """Raised when the configured Gemini free-tier request quota is exhausted."""
+
+
+class GeminiAPIAdapter(BaseLLMAdapter):
+    """
+    Google Gemini generateContent API (remote only). No local models.
+    """
+
+    def __init__(
+        self,
+        model_name: str,
+        cost_tracker: CostTracker,
+        api_key: str | None = None,
+        max_retries: int = 12,
+        rpm_sleep_seconds: float = 8.0,
+    ):
+        super().__init__(model_name or "gemini-3.6-flash", cost_tracker)
+        self.api_key = api_key or os.environ.get("GOOGLE_API_KEY", "")
+        self.max_retries = max_retries
+        self.rpm_sleep_seconds = rpm_sleep_seconds
+
+    def generate_response(self, system_prompt: str, user_prompt: str) -> str:
+        is_cached, text, _ = self.cost_tracker.get_cached_response(
+            self.model_name, system_prompt, user_prompt
+        )
+        if is_cached:
+            return text
+
+        if not self.api_key:
+            raise RuntimeError(
+                "GOOGLE_API_KEY missing. Paste it into PASTE_GOOGLE_API_KEY_HERE.txt and re-run. "
+                "Refusing to fall back to MockLLM — that would fabricate paper numbers."
+            )
+
+        import json
+        import urllib.error
+        import urllib.request
+
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{self.model_name}:generateContent?key={self.api_key}"
+        )
+        payload = {
+            "systemInstruction": {"parts": [{"text": system_prompt}]},
+            "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+            "generationConfig": {
+                "temperature": 0.0,
+                "maxOutputTokens": 8192,
+            },
+        }
+        body = json.dumps(payload).encode("utf-8")
+
+        last_err: Exception | None = None
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                req = urllib.request.Request(
+                    url,
+                    data=body,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=180) as resp:
+                    raw = json.loads(resp.read().decode("utf-8"))
+
+                res_text = self._extract_text(raw)
+                usage = raw.get("usageMetadata", {})
+                in_tok = int(usage.get("promptTokenCount", 0) or 0)
+                out_tok = int(usage.get("candidatesTokenCount", 0) or 0)
+
+                self.cost_tracker.log_and_cache(
+                    model=self.model_name,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    response_text=res_text,
+                    input_tokens=in_tok,
+                    output_tokens=out_tok,
+                )
+                time.sleep(self.rpm_sleep_seconds)
+                return res_text
+            except urllib.error.HTTPError as e:
+                err_body = e.read().decode("utf-8", errors="replace") if e.fp else ""
+                last_err = e
+                wait = min(180, 15 * attempt)
+                if e.code in (429, 500, 503):
+                    logger.warning(
+                        f"Gemini HTTP {e.code} (attempt {attempt}/{self.max_retries}). "
+                        f"Sleeping {wait}s. Body: {err_body[:300]}"
+                    )
+                    time.sleep(wait)
+                    continue
+                logger.error(f"Gemini HTTP {e.code}: {err_body[:800]}")
+                raise RuntimeError(f"Gemini HTTP {e.code}: {err_body[:400]}") from e
+            except Exception as e:
+                last_err = e
+                logger.warning(f"Gemini call failed (attempt {attempt}): {e}")
+                time.sleep(min(180, 15 * attempt))
+
+        raise RuntimeError(f"Gemini API failed after {self.max_retries} retries: {last_err}")
+
+    @staticmethod
+    def _extract_text(raw: dict) -> str:
+        cands = raw.get("candidates") or []
+        if not cands:
+            raise RuntimeError(f"Gemini returned no candidates: {raw}")
+        parts = ((cands[0].get("content") or {}).get("parts")) or []
+        texts = [p.get("text", "") for p in parts if isinstance(p, dict)]
+        joined = "\n".join(t for t in texts if t)
+        if not joined.strip():
+            raise RuntimeError(f"Gemini returned empty text: {raw}")
+        return joined

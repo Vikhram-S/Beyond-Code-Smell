@@ -1,11 +1,18 @@
 import hashlib
 import json
+import time
+from datetime import date
 from pathlib import Path
 from typing import Dict, Any, Tuple
 from src.utils.logger import logger
 
 class BudgetExceededError(Exception):
     """Raised when API spending exceeds configured maximum cost threshold."""
+    pass
+
+
+class QuotaExceededError(Exception):
+    """Raised when free-tier request quota is exhausted."""
     pass
 
 class CostTracker:
@@ -16,10 +23,18 @@ class CostTracker:
 
     def __init__(self, config: Dict[str, Any]):
         budget_cfg = config.get("budget", {})
-        self.max_cost_usd = float(budget_cfg.get("max_cost_usd", 50.0))
-        self.hard_stop = bool(budget_cfg.get("hard_stop_on_overbudget", True))
-        self.cache_dir = Path(budget_cfg.get("cache_dir", ".cache/api_calls"))
+        quota_cfg = config.get("quota", {})
+        self.max_cost_usd = float(budget_cfg.get("max_cost_usd", 0.0))
+        self.hard_stop = bool(budget_cfg.get("hard_stop_on_overbudget", False))
+        self.cache_dir = Path(quota_cfg.get("cache_dir") or budget_cfg.get("cache_dir", ".cache/api_calls"))
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+        self.max_rpm = int(quota_cfg.get("max_requests_per_minute", 8))
+        self.max_rpd = int(quota_cfg.get("max_requests_per_day", 200))
+        self.hard_stop_quota = bool(quota_cfg.get("hard_stop_on_quota", True))
+        self._request_times: list[float] = []
+        self.requests_today = 0
+        self._quota_day = str(date.today())
 
         self.pricing = config.get("pricing_per_1m", {})
         self.cumulative_cost_usd = 0.0
@@ -62,7 +77,30 @@ class CostTracker:
         Logs API call token counts, calculates USD cost, caches response to disk,
         and checks budget limits.
         """
-        # Calculate cost
+        # Free-tier quota (RPM / daily requests), not a dollar budget.
+        if self.hard_stop_quota:
+            today = str(date.today())
+            if today != self._quota_day:
+                self._quota_day = today
+                self.requests_today = 0
+                self._request_times = []
+            now = time.time()
+            self._request_times = [t for t in self._request_times if now - t < 60.0]
+            if len(self._request_times) >= self.max_rpm:
+                sleep_for = 60.0 - (now - self._request_times[0]) + 0.5
+                logger.info(f"[QUOTA] RPM cap {self.max_rpm} reached; sleeping {sleep_for:.1f}s")
+                time.sleep(max(0.0, sleep_for))
+                now = time.time()
+                self._request_times = [t for t in self._request_times if now - t < 60.0]
+            if self.requests_today >= self.max_rpd:
+                raise QuotaExceededError(
+                    f"Daily Gemini request quota exhausted ({self.requests_today}/{self.max_rpd}). "
+                    "Checkpointed work is on disk; resume tomorrow after quota reset."
+                )
+            self._request_times.append(now)
+            self.requests_today += 1
+
+        # Calculate cost (free-tier Gemini is $0; still logged for Fig 6 tokens)
         model_rates = self.pricing.get(model, {"input_usd": 0.0, "output_usd": 0.0})
         input_cost = (input_tokens / 1_000_000.0) * model_rates["input_usd"]
         output_cost = (output_tokens / 1_000_000.0) * model_rates["output_usd"]
@@ -105,7 +143,8 @@ class CostTracker:
 
         logger.info(
             f"[API CALL] Model: {model} | In: {input_tokens} tok | Out: {output_tokens} tok | "
-            f"Cost: ${call_cost:.4f} | Total: ${self.cumulative_cost_usd:.4f}/${self.max_cost_usd:.2f}"
+            f"RPD: {self.requests_today}/{self.max_rpd} | "
+            f"USD (should be 0 on free tier): ${call_cost:.4f}"
         )
 
         return call_cost
@@ -117,6 +156,11 @@ class CostTracker:
             "total_input_tokens": self.total_input_tokens,
             "total_output_tokens": self.total_output_tokens,
             "max_cost_usd": self.max_cost_usd,
+            "requests_today": self.requests_today,
+            "max_requests_per_day": self.max_rpd,
+            "max_requests_per_minute": self.max_rpm,
+            "quota_day": self._quota_day,
+            "backend": "google-gemini-free-tier",
             "total_calls": len(self.call_history),
             "call_history": self.call_history
         }

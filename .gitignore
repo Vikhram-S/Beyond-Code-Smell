@@ -32,11 +32,20 @@ ENV/
 htmlcov/
 .coverage.*
 
+# Secrets — never commit API keys
+.env
+.env.local
+PASTE_GOOGLE_API_KEY_HERE.txt
+API_KEY.txt
+*.pem
+
 # Cache and temporary outputs
 .cache/
 outputs/
 work_repos/
 scratch/
+checkpoints/
+_yale_template_src/
 
 # IDE / OS
 .vscode/

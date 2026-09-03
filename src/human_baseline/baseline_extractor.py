@@ -26,7 +26,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from src.metrics.evaluator import MetricsEvaluator
 from src.utils.logger import logger
@@ -67,10 +67,19 @@ def _files_changed_by_commit(sha: str, repo_path: Path) -> List[str]:
 
 
 def _subsystem_of_file(filepath: str, layers: Dict[str, List[str]]) -> Optional[str]:
-    """Return the first layer key whose path-prefix matches, else None."""
+    """Return the first layer key whose path-prefix or module-prefix matches."""
+    norm = filepath.replace("\\", "/").lstrip("./")
+    dotted = norm.replace("/", ".")
+    if dotted.endswith(".py"):
+        dotted = dotted[:-3]
     for layer_name, prefixes in layers.items():
         for prefix in prefixes:
-            if filepath.startswith(prefix.rstrip("/")):
+            path_prefix = prefix.replace(".", "/").rstrip("/")
+            if (
+                norm.startswith(path_prefix)
+                or dotted == prefix
+                or dotted.startswith(prefix + ".")
+            ):
                 return layer_name
     return None
 
@@ -128,15 +137,47 @@ class HumanBaselineExtractor:
         self,
         layers: Dict[str, List[str]],
         forbidden_rules: List[Dict[str, Any]],
-        agent_task_files: List[str],
-        agent_task_intent: str,
-        max_candidates: int = 500,
+        agent_task_files: Optional[List[str]] = None,
+        agent_task_intent: str = "feature",
+        max_candidates: int = 250,
     ) -> None:
         self.layers = layers
         self.forbidden_rules = forbidden_rules
-        self.agent_task_files = agent_task_files
+        self.agent_task_files = agent_task_files or []
         self.agent_task_intent = agent_task_intent
         self.max_candidates = max_candidates
+
+    def extract_human_commit_trajectory(
+        self, repo_path: Path, max_commits: int = 3
+    ) -> List[Dict[str, Any]]:
+        """Return up to max_commits matched human observations (may be fewer)."""
+        if not self.agent_task_files:
+            logger.warning("[MatchedBaseline] No agent files recorded; matching will be weak.")
+        candidates = self._collect_candidates(repo_path)
+        records: List[Dict[str, Any]] = []
+        seen = set()
+        for commit in candidates:
+            if commit.sha in seen:
+                continue
+            metrics = self._extract_metrics_for_commit(repo_path, commit)
+            if not metrics:
+                continue
+            seen.add(commit.sha)
+            records.append({
+                "matched": True,
+                "sha": commit.sha,
+                "subject": commit.subject,
+                "intent": commit.intent,
+                "files_changed": commit.files_changed,
+                "metrics": metrics,
+            })
+            if len(records) >= max_commits:
+                break
+        if not records:
+            logger.warning(
+                "[MatchedBaseline] No matched human commits; this repo is excluded from the pair design."
+            )
+        return records
 
     # ------------------------------------------------------------------
     # Step 1 — Candidate selection
@@ -223,15 +264,15 @@ class HumanBaselineExtractor:
         parent_sha = parent_out.strip()
 
         try:
-            run_shell_command(f"git checkout {parent_sha}", cwd=repo_path)
+            run_shell_command(f"git checkout -f {parent_sha}", cwd=repo_path)
             v_pre, e_pre = MetricsEvaluator.extract_python_import_graph(repo_path)
             cc_pre = MetricsEvaluator.compute_cyclomatic_complexity(repo_path)
 
-            run_shell_command(f"git checkout {commit.sha}", cwd=repo_path)
+            run_shell_command(f"git checkout -f {commit.sha}", cwd=repo_path)
             v_post, e_post = MetricsEvaluator.extract_python_import_graph(repo_path)
             cc_post = MetricsEvaluator.compute_cyclomatic_complexity(repo_path)
         finally:
-            run_shell_command("git checkout -", cwd=repo_path)
+            run_shell_command("git checkout -f -", cwd=repo_path)
 
         dged = MetricsEvaluator.compute_dged(v_pre, e_pre, v_post, e_post)
         lvc, violations = MetricsEvaluator.compute_lvc(

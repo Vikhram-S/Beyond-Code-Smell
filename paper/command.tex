@@ -1,0 +1,205 @@
+% for underbar
+\makeatletter
+\def\munderbar#1{\underline{\sbox\tw@{$#1$}\dp\tw@\z@\box\tw@}}
+\makeatother
+
+
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}[definition]{Theorem}
+\newtheorem{lemma}[definition]{Lemma}
+\newtheorem{remark}[definition]{Remark}
+\newtheorem{corollary}[definition]{Corollary}
+\newtheorem{proposition}[definition]{Proposition}
+\newtheorem{observation}[definition]{Observation}
+\newtheorem{claim}[definition]{Claim}
+\newtheorem{example}[definition]{Example}
+\newtheorem{assumption}[definition]{Assumption}
+\newtheorem{axiom}{Axiom}
+\newtheorem{property}[axiom]{Property}
+\newtheorem{conjecture}[definition]{Conjecture}
+
+\AddToHook{cmd/appendix/before}{%
+  \setcounter{axiom}{0}%
+  \renewcommand{\theaxiom}{\thesection.\arabic{axiom}}%
+}
+
+%==================================
+\newcommand{\note}[1]{\textbf{{\color{red}(#1)}}}
+% \newcommand{\red}[1]{{\color{red}#1}}
+\newcommand{\blue}[1]{{\color{blue}#1}}
+\newcommand{\red}[1]{{\color{red}#1}}
+\newcommand{\ngoc}[1]{{\color{red}(Ngoc says: #1)}}
+\newcommand{\rex}[1]{{\color{red}(Rex says: #1)}}
+% \newcommand{\todo}[1]{{\color{red}\bf[TODO]: #1}}
+%======================================
+\newcommand{\Ec}{\mc E}
+\newcommand{\Ebb}{\mathbb E}
+\newcommand{\Ic}{\mc I}
+\newcommand{\Gc}{\mc G}
+\newcommand{\Af}{\mbf A}
+\newcommand{\Bf}{\mbf B}
+% \newcommand{\Cf}{\mbf C}
+\newcommand{\Df}{\mbf D}
+\newcommand{\Ef}{\mbf E}
+% \newcommand{\If}{\mbf I}
+
+\newcommand{\Sh}{\phi}
+\newcommand{\My}{\psi}
+\newcommand{\Ow}{\omega}
+\newcommand{\ShI}{\Phi}
+\newcommand{\MyI}{\Psi}
+\newcommand{\OwI}{\Omega}
+\newcommand{\CS}{\Gamma}
+\newcommand{\EMyI}{\widetilde{\Psi}}
+%======================================
+\newcommand{\be}{\begin{equation}}
+\newcommand{\ee}{\end{equation}}
+\newcommand{\bea}{\begin{equation*}\begin{aligned}}
+\newcommand{\eea}{\end{aligned}\end{equation*}}
+\newcommand{\ds}{\displaystyle}
+\newcommand{\independent}{\protect\mathpalette{\protect\independenT}{\perp}}
+\newcommand{\R}{\mathbb{R}}
+
+\newcommand{\bL}{\textbf{L}}
+\newcommand{\bD}{\textbf{D}}
+\newcommand{\bS}{\textbf{S}}
+\newcommand{\bE}{\textbf{E}}
+\newcommand{\bID}{\textbf{ID}}
+\newcommand{\bF}{\textbf{F}}
+\newcommand{\bCE}{\textbf{CE}}
+\newcommand{\bCF}{\textbf{CF}}
+\newcommand{\bFDS}{\textbf{FDS}}
+\newcommand{\bIC}{\textbf{IC}}
+\newcommand{\bIDC}{\textbf{IDC}}
+\newcommand{\bRNP}{\textbf{RNP}}
+
+\newcommand{\Max}{\max\limits_}
+\newcommand{\Min}{\min\limits_}
+\newcommand{\Sup}{\sup\limits_}
+\newcommand{\Inf}{\inf\limits_}
+\newcommand{\Tr}[1]{\Trace \big[ #1 \big]}
+
+% \DeclareMathOperator*{\argmax}{argmax}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\newcommand{\wh}{\widehat}
+\newcommand{\mc}{\mathcal}
+\newcommand{\mbb}{\mathbb}
+\newcommand{\mbf}{\mathbf}
+\newcommand{\inner}[2]{\big \langle #1, #2 \big \rangle }
+\newcommand{\singl}[1]{\langle #1 \rangle }
+\newcommand{\cov}{\Sigma} % true covariance matrix
+\newcommand{\covsa}{\wh{\cov}}
+\newcommand{\prior}{\wh}
+
+\newcommand{\M}{\mc M}
+
+% \newcommand{\dp}{\mathrm{dp}}
+\newcommand{\p}{\mbb P}
+\newcommand{\PP}{\mbb P}
+\newcommand{\empiP}{\wh{\mbb P}^{\mc N}}
+
+\newcommand{\QQ}{\mbb Q}
+\newcommand{\AmbiW}{\mc W}
+\newcommand{\Ambi}{\mc P} % Ambiguity set
+\newcommand{\Ambiphi}{\mc Q_\phi}
+\newcommand{\AmbiGeneral}{\mc P_\rho}
+
+% \newcommand{\ie}{{\it i.e.}}
+
+\DeclareMathOperator{\Trace}{Tr}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\sign}{sign}
+\DeclareMathOperator{\dd}{d}
+% \DeclareMathOperator{\st}{s.t.}
+\DeclareMathOperator{\Cov}{Cov}
+\DeclareMathOperator{\rank}{rank}
+
+\newcommand{\defeq}{%
+  \mathrel{\vbox{\offinterlineskip\ialign{%
+    \hfil##\hfil\cr
+    $\scriptscriptstyle\triangle$\cr
+    %\noalign{\kern0ex}
+    $=$\cr
+}}}}
+
+
+\newcommand{\Sym}{\mathbb{S}}
+\newcommand{\PSD}{\mathbb{S}_{+}} % the set of positive semi-definite matrices of dimension p
+\newcommand{\PD}{\mathbb{S}_{++}} % the set of positive semi-definite matrices of dimension p
+\newcommand{\Let}{\triangleq}
+\newcommand{\opt}{^\star}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\ra}{\rightarrow}
+\newcommand{\Wass}{\mathds{W}}
+\newcommand{\V}{\mc{V}}
+\newcommand{\Q}{\mbb{Q}}
+\newcommand{\EE}{\mathds{E}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\tr}{\intercal}
+\newcommand{\X}{X}
+\newcommand{\m}{\mu}
+\newcommand{\msa}{\wh \mu}
+
+\newcommand{\U}{\mc U}
+\newcommand{\UU}{\mbb U}
+\newcommand{\Var}{\mathbb{V}\text{ar}} % Variance
+\newcommand{\Std}{\mathbb{S}\text{td}}
+\newcommand{\half}{\frac{1}{2}}
+\newcommand{\dualvar}{\gamma}
+
+
+
+\newcommand{\Onef}{\mbf 1}
+\newcommand{\scat}{S}
+\newcommand{\cent}{\m}
+\newcommand{\eqdist}{\stackrel{\mathrm{d.}}{=}}
+
+
+\DeclareMathOperator{\CVaR}{CVaR}
+\DeclareMathOperator{\VaR}{VaR}
+
+\newcommand{\ubar}{\underline}
+\newcommand{\chol}{{\wh \Lambda}}
+\newcommand{\Ssa}{\wh S}
+\newcommand{\N}{\mc N}
+\newcommand{\D}{\mc D}
+
+\newcommand{\Sy}{{\rm S}}
+\newcommand{\SU}{{\rm SU}}
+\newcommand{\Gelbrich}{\mathds{G}}
+\newcommand{\G}{\mc G}
+\newcommand{\W}{\mc W}
+\newcommand{\TT}{\mathbb T}
+
+
+\newcommand{\Borel}{\mc B}
+\newcommand{\F}{\mc F}
+\newcommand{\A}{\mc A}
+\newcommand{\Y}{Y}
+\newcommand{\w}{w}
+\newcommand{\x}{x}
+
+\newcommand{\pp}{\p\text{-}}
+
+\newcommand{\Pnom}{\wh \p}
+\newcommand{\Lc}{\mc L}
+\newcommand{\B}{\mbb B}
+\newcommand{\risk}{\mc R}
+\newcommand{\diff}{\mathrm{d}}
+\newcommand{\dyp}{\mathrm{dp}}
+\newcommand{\DS}{\displaystyle}
+\newcommand{\J}{\mc J}
+\newcommand{\FR}{\mathds{F}}
+
+\newcommand{\NULL}{\mathrm{null}}
+
+\newcommand{\gv}[1]{\ensuremath{\mbox{\boldmath$ #1 $}}} 
+\newcommand{\ve}[1]{\mathbf{#1}}
+\newcommand{\grad}[1]{\gv{\nabla} #1} %for gradient
+\newcommand{\st}{\mathrm{s.t.}}
+\DeclareMathOperator*{\supp}{supp}
+\DeclareMathOperator*{\TV}{TV}
+\DeclareMathOperator*{\KL}{KL}

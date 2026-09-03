@@ -29,8 +29,9 @@ def render_fig5_correlation_plot(data_path: Path, output_dir: Path):
             pass
 
     if df.empty:
-        from src.analysis.synthetic_generator import SyntheticDataGenerator
-        df = SyntheticDataGenerator.generate_dataset()
+        raise FileNotFoundError(
+            f"No real dataset at {data_path}. Refusing synthetic figures for the paper."
+        )
 
     agent_df = df[df["subject"] == "agent"].copy()
 
@@ -99,16 +100,19 @@ def render_fig5_correlation_plot(data_path: Path, output_dir: Path):
                        fontsize=10, fontweight="bold")
     ax.set_ylim(-0.12, 1.12)
 
-    # Annotation box — OR shown as PLACEHOLDER, not a mock number
+    # Annotation box — OR from this dataset; flag separation if Firth was needed
+    from src.analysis.stats_analyzer import StatisticalAnalyzer
+    risk = StatisticalAnalyzer(df).run_downstream_risk_analysis()
     p_str  = f"{p_val:.4f}" if p_val >= 0.0001 else f"{p_val:.2e}"
     rs_str = f"{r_s:+.3f}"
+    or_str = f"{risk['odds_ratio']:.2f}"
+    sep = "Firth; OR unreliable under separation" if risk.get("separation_detected") or risk.get("ci_absurdly_wide") else risk.get("model_type", "logit")
     annot  = (
         r"$\mathbf{Spearman\ r_s}$" + "\n"
         + f"$r_s = {rs_str},\\ p = {p_str}$\n"
         + r"$\mathbf{Odds\ Ratio}$" + "\n"
-        + r"$\mathrm{OR} = [\mathrm{PLACEHOLDER}]$"
-        + "\n"
-        + r"{\footnotesize (Firth correction if separated)}"
+        + f"$\\mathrm{{OR}} = {or_str}$\n"
+        + sep
     )
     ax.text(
         0.04, 0.96, annot,

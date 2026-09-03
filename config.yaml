@@ -1,42 +1,146 @@
+study:
+  # Pilot design for Gemini free-tier + 8GB laptop (Cursor free-tier session).
+  n_repos: 5
+  sessions_per_repo: 3
+  design: "matched-pair pilot"
+
+quota:
+  max_requests_per_minute: 8
+  max_requests_per_day: 200
+  hard_stop_on_quota: true
+  cache_dir: ".cache/api_calls"
+
 budget:
-  max_cost_usd: 50.0
-  hard_stop_on_overbudget: true
+  # Kept for backward-compatible CostTracker fields; USD is not the limiter.
+  max_cost_usd: 0.0
+  hard_stop_on_overbudget: false
   cache_dir: ".cache/api_calls"
 
 llm:
-  provider: "mock"  # Options: "claude", "openai", "mock"
-  model_name: "claude-3-5-sonnet-20241022"
+  provider: "gemini"
+  model_name: "gemini-3.6-flash"
   temperature: 0.0
   max_tokens: 4096
 
 orchestration:
   default_sessions_per_task: 3
-  max_retries: 3
-  timeout_seconds: 120
+  max_retries: 5
+  timeout_seconds: 180
   checkpoint_dir: "checkpoints"
   repo_work_dir: "work_repos"
+  clone_depth: 1
+  history_deepen: 200
+  delete_checkout_after_repo: true
+  sequential_only: true
+  test_timeout_seconds: 90
 
 pricing_per_1m:
-  claude-3-5-sonnet-20241022:
-    input_usd: 3.00
-    output_usd: 15.00
-  gpt-4o:
-    input_usd: 2.50
-    output_usd: 10.00
+  gemini-3.6-flash:
+    input_usd: 0.00
+    output_usd: 0.00
   mock-model:
     input_usd: 0.00
     output_usd: 0.00
 
 repos:
-  toy-python-app:
-    name: "toy-python-app"
+  fastapi-users:
+    name: "fastapi-users"
+    clone_url: "https://github.com/fastapi-users/fastapi-users.git"
     language: "python"
-    test_cmd: "pytest"
+    size: "small"
+    domain: "web"
+    test_cmd: "python -m pytest --tb=no -q --maxfail=5"
+    task_intent: "feature"
+    task_prompt_s1: "Session 1: Extend the domain/schema layer with a small optional field or helper used by a new user-facing feature. Keep domain code free of database or HTTP imports."
+    task_prompt_s2: "Session 2: Add service/manager logic that uses the domain types from Session 1. Do not import routers or HTTP frameworks from domain modules."
+    task_prompt_s3: "Session 3: Expose the feature at the router/entrypoint layer only. Domain modules must still not import adapters or routers."
     layers:
-      L1_domain: ["domain"]
-      L2_service: ["service"]
-      L3_adapter: ["adapters"]
-      L4_entrypoint: ["api"]
+      L1_domain: ["fastapi_users.models", "fastapi_users.schemas"]
+      L2_service: ["fastapi_users.manager", "fastapi_users.authentication"]
+      L3_adapter: ["fastapi_users.db"]
+      L4_entrypoint: ["fastapi_users.router"]
+    forbidden_rules:
+      - source: "L1_domain"
+        target: ["L2_service", "L3_adapter", "L4_entrypoint"]
+      - source: "L2_service"
+        target: ["L3_adapter", "L4_entrypoint"]
+
+  diskcache:
+    name: "diskcache"
+    clone_url: "https://github.com/grantjenks/python-diskcache.git"
+    language: "python"
+    size: "small"
+    domain: "library"
+    test_cmd: "python -m pytest --tb=no -q --maxfail=5"
+    task_intent: "feature"
+    task_prompt_s1: "Session 1: Add a small domain/core helper on the cache core without importing CLI or persistent-fanout modules."
+    task_prompt_s2: "Session 2: Wire the helper through a service/fanout-style module. Core must not import CLI."
+    task_prompt_s3: "Session 3: Optionally surface the helper from the CLI/entrypoint. Core still must not import CLI."
+    layers:
+      L1_domain: ["diskcache.core"]
+      L2_service: ["diskcache.fanout"]
+      L3_adapter: ["diskcache.persistent"]
+      L4_entrypoint: ["diskcache.cli"]
+    forbidden_rules:
+      - source: "L1_domain"
+        target: ["L2_service", "L3_adapter", "L4_entrypoint"]
+
+  httpie:
+    name: "httpie"
+    clone_url: "https://github.com/httpie/cli.git"
+    language: "python"
+    size: "small"
+    domain: "cli"
+    test_cmd: "python -m pytest --tb=no -q --maxfail=5"
+    task_intent: "feature"
+    task_prompt_s1: "Session 1: Extend a models/context helper without importing output, plugins, or CLI modules from that domain module."
+    task_prompt_s2: "Session 2: Use the helper from client/download service code. Domain must not import CLI."
+    task_prompt_s3: "Session 3: Expose the behavior from the CLI layer only."
+    layers:
+      L1_domain: ["httpie.models", "httpie.context"]
+      L2_service: ["httpie.client", "httpie.downloads"]
+      L3_adapter: ["httpie.output", "httpie.plugins"]
+      L4_entrypoint: ["httpie.cli"]
+    forbidden_rules:
+      - source: "L1_domain"
+        target: ["L2_service", "L3_adapter", "L4_entrypoint"]
+
+  sqlmodel:
+    name: "sqlmodel"
+    clone_url: "https://github.com/fastapi/sqlmodel.git"
+    language: "python"
+    size: "medium"
+    domain: "library"
+    test_cmd: "python -m pytest --tb=no -q --maxfail=5"
+    task_intent: "feature"
+    task_prompt_s1: "Session 1: Add a small helper near sqlmodel.main / domain types. Do not import engine or CLI modules from that helper."
+    task_prompt_s2: "Session 2: Integrate the helper in sql-related service code."
+    task_prompt_s3: "Session 3: If needed, expose it from an entrypoint. Domain must not import engine/cli."
+    layers:
+      L1_domain: ["sqlmodel.main"]
+      L2_service: ["sqlmodel.sql"]
+      L3_adapter: ["sqlmodel.engine"]
+      L4_entrypoint: ["sqlmodel"]
+    forbidden_rules:
+      - source: "L1_domain"
+        target: ["L2_service", "L3_adapter", "L4_entrypoint"]
+
+  typer:
+    name: "typer"
+    clone_url: "https://github.com/fastapi/typer.git"
+    language: "python"
+    size: "small"
+    domain: "cli"
+    test_cmd: "python -m pytest --tb=no -q --maxfail=5"
+    task_intent: "feature"
+    task_prompt_s1: "Session 1: Add a small helper in typer core/main without importing rich/testing/cli extras if those would invert layers."
+    task_prompt_s2: "Session 2: Use the helper from a service-style module (params/models/utils)."
+    task_prompt_s3: "Session 3: Surface it from the public Typer entrypoint only if needed."
+    layers:
+      L1_domain: ["typer.models", "typer.params"]
+      L2_service: ["typer.core", "typer.utils"]
+      L3_adapter: ["typer.rich_utils", "typer.testing"]
+      L4_entrypoint: ["typer.main", "typer.cli"]
     forbidden_rules:
       - source: "L1_domain"
         target: ["L2_service", "L3_adapter", "L4_entrypoint"]

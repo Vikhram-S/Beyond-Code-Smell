@@ -61,11 +61,14 @@ def render_fig3_violin_comparison(data_path: Path, output_dir: Path):
             pass
 
     if df.empty:
-        from src.analysis.synthetic_generator import SyntheticDataGenerator
-        df = SyntheticDataGenerator.generate_dataset()
+        raise FileNotFoundError(
+            f"No real dataset at {data_path}. Refusing synthetic figures for the paper."
+        )
 
-    domains = ["web", "cli", "library"]
-    domain_labels = ["Web Backend", "CLI Tool", "Data Library"]
+    domains = [d for d in ["web", "cli", "library"] if d in set(df["repo_domain"].dropna().astype(str))]
+    if not domains:
+        domains = sorted(df["repo_domain"].dropna().unique().tolist())
+    domain_labels = [{"web": "Web Backend", "cli": "CLI Tool", "library": "Data Library"}.get(d, str(d)) for d in domains]
 
     fig, ax = plt.subplots(figsize=(7.5, 4.4), dpi=600)
 
@@ -90,8 +93,8 @@ def render_fig3_violin_comparison(data_path: Path, output_dir: Path):
     ax.set_xlabel("Application Domain", fontsize=10.5, fontweight="bold")
     ax.set_ylabel("Complexity-Norm. Drift ($\\text{CNLV}$)",
                   fontsize=10.5, fontweight="bold")
+    ax.set_xticks(list(range(len(domains))))
     ax.set_xticklabels(domain_labels, fontsize=10, fontweight="bold")
-    ax.set_xticks([0, 1, 2])
 
     # Per-domain Mann-Whitney U + Bonferroni correction (m=3)
     m = len(domains)

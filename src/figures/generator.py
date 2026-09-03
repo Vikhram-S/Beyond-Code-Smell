@@ -40,7 +40,7 @@ def generate_all_figures(data_path: Path, output_dir: Path, fig_num: int | None 
 
 def main():
     parser = argparse.ArgumentParser(description="Publication Figure Generator for Architectural Drift Paper")
-    parser.add_argument("--data", type=str, default="results/descriptive_stats.csv", help="Path to statistical results CSV")
+    parser.add_argument("--data", type=str, default="results/real_mined_dataset.csv", help="Path to real session dataset CSV")
     parser.add_argument("--outdir", type=str, default="outputs/figures", help="Output directory for generated PDF/PNG figures")
     parser.add_argument("--fig", type=int, default=None, help="Optionally generate specific figure number (1-6)")
     args = parser.parse_args()

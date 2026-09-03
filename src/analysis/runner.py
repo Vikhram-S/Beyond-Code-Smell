@@ -15,23 +15,21 @@ def run_statistical_pipeline(synthetic: bool = False, output_dir: Path = Path("r
 
     # 1. Load Dataset
     if synthetic:
-        logger.info("[MODE] Generating synthetic multi-repo evaluation dataset (N=18 repos)")
+        logger.info("[MODE] Generating synthetic multi-repo evaluation dataset (NOT for the paper)")
         df = SyntheticDataGenerator.generate_dataset()
-        data_status_flag = "[PRELIMINARY / DRY-RUN]"
+        data_status_flag = "[PRELIMINARY / DRY-RUN — DO NOT USE IN THE PAPER]"
     else:
         logger.info("[MODE] Loading real empirical benchmark dataset")
         real_csv = Path("results/real_mined_dataset.csv")
-        if real_csv.exists():
-            logger.info(f"Found existing real empirical dataset: {real_csv}")
-            df = pd.read_csv(real_csv)
-            data_status_flag = "[REAL OPEN-SOURCE EMPIRICAL BENCHMARK DATASET]"
-        else:
-            logger.info("Running empirical miner to extract real open-source repo data...")
-            from src.empirics.real_data_miner import RealEmpiricalDataMiner
-            miner = RealEmpiricalDataMiner()
-            records = miner.mine_all()
-            df = pd.DataFrame(records)
-            data_status_flag = "[REAL OPEN-SOURCE EMPIRICAL BENCHMARK DATASET]"
+        if not real_csv.exists():
+            raise FileNotFoundError(
+                "results/real_mined_dataset.csv is missing. Run `python -m src.pipeline` with GOOGLE_API_KEY. "
+                "Refusing to invent numbers."
+            )
+        df = pd.read_csv(real_csv)
+        if df.empty:
+            raise RuntimeError("real_mined_dataset.csv is empty. Resume the pipeline; do not fabricate rows.")
+        data_status_flag = "[REAL GEMINI FREE-TIER PILOT DATASET]"
 
     analyzer = StatisticalAnalyzer(df)
 
@@ -88,7 +86,7 @@ def run_statistical_pipeline(synthetic: bool = False, output_dir: Path = Path("r
 
 **Study Title:** *Beyond Code Smell: Measuring Architectural Conformance Drift in Long-Horizon Autonomous Coding Agent Sessions*  
 **Data Status:** {data_status_flag}  
-**Dataset Scope:** Total Observations = {len(df)} across 18 Repositories  
+**Dataset Scope:** Total Observations = {len(df)} across {df['repo_id'].nunique()} Repositories  
 
 ---
 
@@ -157,6 +155,93 @@ def run_statistical_pipeline(synthetic: bool = False, output_dir: Path = Path("r
     logger.info("==================================================")
     logger.info("Phase 4 Statistical Analysis Completed Successfully!")
     logger.info("==================================================")
+
+    import json
+    n_repos = int(df["repo_id"].nunique())
+    n_agent = int((df["subject"] == "agent").sum())
+    n_human = int((df["subject"] == "human").sum())
+    numbers = {
+        "n_repos": n_repos,
+        "n_agent": n_agent,
+        "n_human": n_human,
+        "n_obs": int(len(df)),
+        "backend": "Google Gemini API (gemini-3.6-flash, free-tier quota)",
+        "shapiro_agent_p": diagnostics["shapiro_agent_p"],
+        "shapiro_human_p": diagnostics["shapiro_human_p"],
+        "mwu_u": mwu_results["mann_whitney_u"],
+        "mwu_p": mwu_results["p_value"],
+        "r_rb": mwu_results["rank_biserial_r"],
+        "effect_size_magnitude": mwu_results["effect_size_magnitude"],
+        "median_agent": mwu_results["median_agent"],
+        "median_human": mwu_results["median_human"],
+        "lmm_beta": lmm_results["fixed_effect_slope"],
+        "lmm_p": lmm_results["fixed_effect_pvalue"],
+        "lmm_var": lmm_results["random_effect_var"],
+        "mdes_d": power_results["mdes_cohens_d"],
+        "spearman_rs": risk_results["spearman_rho"],
+        "spearman_p": risk_results["spearman_pvalue"],
+        "odds_ratio": risk_results["odds_ratio"],
+        "logit_p": risk_results["logit_pvalue"],
+        "separation_detected": risk_results["separation_detected"],
+        "model_type": risk_results["model_type"],
+        "ci_absurdly_wide": risk_results["ci_absurdly_wide"],
+        "or_lower_95": risk_results["or_lower_95"],
+        "or_upper_95": risk_results["or_upper_95"],
+        "risk_summary": risk_results["practical_hook_summary"],
+        "power_assessment": power_results["power_assessment"],
+        "lmm_interpretation": lmm_results["interpretation"],
+    }
+    agent_cnlv = df[df["subject"] == "agent"]["cnlv"].dropna()
+    human_cnlv = df[df["subject"] == "human"]["cnlv"].dropna()
+    numbers["agent_q1"] = float(agent_cnlv.quantile(0.25)) if len(agent_cnlv) else float("nan")
+    numbers["agent_q3"] = float(agent_cnlv.quantile(0.75)) if len(agent_cnlv) else float("nan")
+    numbers["human_q1"] = float(human_cnlv.quantile(0.25)) if len(human_cnlv) else float("nan")
+    numbers["human_q3"] = float(human_cnlv.quantile(0.75)) if len(human_cnlv) else float("nan")
+    numbers["shapiro_agent_w"] = diagnostics["shapiro_agent_stat"]
+    numbers["shapiro_human_w"] = diagnostics["shapiro_human_stat"]
+    (output_dir / "paper_numbers.json").write_text(json.dumps(numbers, indent=2, default=str), encoding="utf-8")
+
+    def _fmt(x, spec=".4f"):
+        try:
+            v = float(x)
+            if v != v:  # NaN
+                return "NA"
+            return format(v, spec)
+        except (TypeError, ValueError):
+            return "NA"
+
+    macros = [
+        r"\newcommand{\nRepos}{" + str(n_repos) + "}",
+        r"\newcommand{\nAgent}{" + str(n_agent) + "}",
+        r"\newcommand{\nHuman}{" + str(n_human) + "}",
+        r"\newcommand{\mdesD}{" + _fmt(power_results["mdes_cohens_d"], ".3f") + "}",
+        r"\newcommand{\mwuU}{" + _fmt(mwu_results["mann_whitney_u"], ".1f") + "}",
+        r"\newcommand{\mwuP}{" + _fmt(mwu_results["p_value"], ".4e") + "}",
+        r"\newcommand{\rrb}{" + _fmt(mwu_results["rank_biserial_r"], ".3f") + "}",
+        r"\newcommand{\medAgent}{" + _fmt(mwu_results["median_agent"]) + "}",
+        r"\newcommand{\medHuman}{" + _fmt(mwu_results["median_human"]) + "}",
+        r"\newcommand{\agentQone}{" + _fmt(numbers["agent_q1"]) + "}",
+        r"\newcommand{\agentQthree}{" + _fmt(numbers["agent_q3"]) + "}",
+        r"\newcommand{\humanQone}{" + _fmt(numbers["human_q1"]) + "}",
+        r"\newcommand{\humanQthree}{" + _fmt(numbers["human_q3"]) + "}",
+        r"\newcommand{\lmmBeta}{" + _fmt(lmm_results["fixed_effect_slope"]) + "}",
+        r"\newcommand{\lmmP}{" + _fmt(lmm_results["fixed_effect_pvalue"], ".4e") + "}",
+        r"\newcommand{\spearmanRs}{" + _fmt(risk_results["spearman_rho"], ".3f") + "}",
+        r"\newcommand{\spearmanP}{" + _fmt(risk_results["spearman_pvalue"], ".4e") + "}",
+        r"\newcommand{\oddsRatio}{" + _fmt(risk_results["odds_ratio"], ".2f") + "}",
+        r"\newcommand{\logitP}{" + _fmt(risk_results["logit_pvalue"], ".4e") + "}",
+        r"\newcommand{\sepFlag}{" + ("yes" if risk_results["separation_detected"] else "no") + "}",
+        r"\newcommand{\modelType}{" + str(risk_results["model_type"]).replace("%", "") + "}",
+        r"\newcommand{\shapiroAW}{" + _fmt(diagnostics["shapiro_agent_stat"]) + "}",
+        r"\newcommand{\shapiroAP}{" + _fmt(diagnostics["shapiro_agent_p"], ".4e") + "}",
+        r"\newcommand{\shapiroHW}{" + _fmt(diagnostics["shapiro_human_stat"]) + "}",
+        r"\newcommand{\shapiroHP}{" + _fmt(diagnostics["shapiro_human_p"], ".4e") + "}",
+        r"\newcommand{\effectMag}{" + str(mwu_results["effect_size_magnitude"]) + "}",
+    ]
+    (output_dir / "results_macros.tex").write_text("\n".join(macros) + "\n", encoding="utf-8")
+    paper_copy = Path("paper") / "results_macros.tex"
+    paper_copy.write_text("\n".join(macros) + "\n", encoding="utf-8")
+    return numbers
 
 def main():
     parser = argparse.ArgumentParser(description="Phase 4 Statistical Analysis Engine")
