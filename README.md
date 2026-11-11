@@ -8,7 +8,7 @@ Official artifact repository and evaluation harness for the paper **"Beyond Code
 
 ---
 
-## 📌 Abstract
+## Abstract
 
 Autonomous coding agents increasingly execute multi-session, long-horizon software engineering tasks across multi-file codebases. While existing benchmarks measure localized code-quality erosion (e.g., SlopCodeBench), none evaluate whether agents preserve higher-level architectural models, module boundaries, and layering constraints over extended horizons.
 
@@ -22,7 +22,7 @@ Using a matched-pair design across open-source Python repositories ($N_1 = N_2 =
 
 ---
 
-## 📊 Key Empirical Findings
+## Key Empirical Findings
 
 | Metric / Analysis | Result | Statistical Significance |
 | :--- | :--- | :--- |
@@ -34,7 +34,7 @@ Using a matched-pair design across open-source Python repositories ($N_1 = N_2 =
 
 ---
 
-## 📂 Repository Structure
+## Repository Structure
 
 ```text
 .
@@ -72,7 +72,7 @@ Using a matched-pair design across open-source Python repositories ($N_1 = N_2 =
 
 ---
 
-## ⚡ Quickstart & Reproducibility
+## Quickstart & Reproducibility
 
 ### 1. Installation
 ```bash
@@ -105,7 +105,7 @@ python -m src.pipeline --config config.yaml
 
 ---
 
-## 📖 Citation
+## Citation
 
 If you use this benchmark, metric formulation, or dataset in your research, please cite:
 
@@ -121,6 +121,6 @@ If you use this benchmark, metric formulation, or dataset in your research, plea
 
 ---
 
-## 📜 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
